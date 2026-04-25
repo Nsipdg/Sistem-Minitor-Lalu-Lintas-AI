@@ -25,7 +25,7 @@ st.set_page_config(page_title="QC Scanner AI")
 st.title("🛡️ Quality Control Scanner")
 
 # MASUKKAN TOKEN hf_... DI SINI
-TOKEN_HF = "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" 
+TOKEN_HF = "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" 
 
 app = AplikasiQC(TOKEN_HF)
 
