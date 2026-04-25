@@ -43,7 +43,7 @@ class QualityApp(GeminiEngine):
 st.set_page_config(page_title="Vision AI Pro", layout="wide")
 
 # MASUKKAN API KEY KAMU DI SINI
-API_KEY = "MASUKKAN_API_KEY_KAMU" 
+API_KEY = "AIzaSyB3bQLCvAb2b4tw7Gmsz-N4ZKXwfiFND30" 
 
 if API_KEY == "MASUKKAN_API_KEY_KAMU":
     st.error("⚠️ Masukkan API Key Gemini kamu!")
