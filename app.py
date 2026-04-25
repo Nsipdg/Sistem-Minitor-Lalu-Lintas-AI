@@ -1,39 +1,69 @@
 import streamlit as st
-import cv2
-import numpy as np
-from PIL import Image
-import cvlib as cv
-from cvlib.object_detection import draw_bbox
+import requests
+import pandas as pd
+from PIL import Image, ImageDraw
+import io
 
 # --- KONSEP PBO: INHERITANCE ---
-class VisionSystem:
+class BaseAI:
     def __init__(self):
-        self.status = "AI Engine Ready"
+        # API Key gratisan Hugging Face (Public Model)
+        self.api_url = "https://api-inference.huggingface.co/models/facebook/detr-resnet-50"
+        self.headers = {"Authorization": "Bearer hf_xxxx"} # Kosongkan saja, model publik biasanya open
 
-class TrafficAI(VisionSystem):
+class TrafficAI(BaseAI):
     def __init__(self):
         super().__init__()
-        
-    def detect_objects(self, image_np):
-        # INI ADALAH AI ASLI
-        # bbox = kotak, label = nama objek, conf = akurasi
-        bbox, label, conf = cv.detect_common_objects(image_np)
-        
-        # Menggambar kotak deteksi ke gambar
-        output_image = draw_bbox(image_np, bbox, label, conf)
-        
-        # Menghitung jumlah kendaraan unik
-        counts = {x: label.count(x) for x in set(label)}
-        return output_image, counts, label
+
+    def query(self, image_bytes):
+        # Mengirim foto ke server AI Hugging Face
+        response = requests.post(self.api_url, data=image_bytes)
+        return response.json()
 
 # --- UI DASHBOARD ---
-st.set_page_config(page_title="Real AI Detection", layout="wide")
-ai = TrafficAI()
+st.set_page_config(page_title="AI Traffic Pro", layout="wide")
+ai_system = TrafficAI()
 
-st.title("🚦 Real-Time Traffic AI Detection")
-st.write(f"System Status: {ai.status}")
+st.title("🚦 Smart City AI Traffic Detection")
+st.caption("Deployment: GitHub + Streamlit Cloud + Hugging Face API")
 
-uploaded_file = st.file_uploader("Unggah foto lalu lintas...", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Pilih foto lalu lintas...", type=["jpg", "jpeg", "png"])
+
+if uploaded_file is not None:
+    img_bytes = uploaded_file.getvalue()
+    img = Image.open(io.BytesIO(img_bytes))
+    
+    with st.spinner('Menghubungi AI Cloud...'):
+        results = ai_system.query(img_bytes)
+        
+        # Validasi jika hasil berupa list (berhasil deteksi)
+        if isinstance(results, list):
+            draw = ImageDraw.Draw(img)
+            labels = [res['label'] for res in results]
+            
+            # Gambar kotak deteksi
+            for res in results:
+                box = res['box']
+                # Format box: xmin, ymin, xmax, ymax
+                draw.rectangle([box['xmin'], box['ymin'], box['xmax'], box['ymax']], outline="red", width=3)
+            
+            col1, col2 = st.columns([2, 1])
+            col1.image(img, use_column_width=True)
+            
+            with col2:
+                st.subheader("📊 Hasil Analisis")
+                counts = pd.Series(labels).value_counts()
+                st.write(counts)
+                
+                # Analisis Resiko (Poin 2 Instruksi)
+                st.markdown("---")
+                total_car = counts.get('car', 0)
+                if total_car > 5:
+                    st.error(f"⚠️ Resiko Kemacetan: TINGGI ({total_car} Mobil)")
+                else:
+                    st.success("✅ Resiko Kemacetan: RENDAH")
+        else:
+            st.warning("Server AI sedang sibuk, silakan coba lagi dalam beberapa detik.")
 
 if uploaded_file is not None:
     # Konversi file ke format yang dimengerti AI
