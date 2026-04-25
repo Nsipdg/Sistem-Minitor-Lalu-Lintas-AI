@@ -41,7 +41,7 @@ class ImageRestorationApp(BaseAI):
 st.set_page_config(page_title="Image HD Restoration", layout="wide")
 
 # Token baru Hugging Face yang bertipe 'Read' (Buat yang baru jika yang lama diblokir)
-HF_TOKEN = "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" 
+HF_TOKEN = st.secrets["HF_TOKEN"]
 
 if HF_TOKEN == "hf_TEMPEL_TOKEN_HUGGINGFACE_BARU_DI_SINI":
     st.error("⚠️ Masukkan Token Hugging Face kamu di dalam kode!")
