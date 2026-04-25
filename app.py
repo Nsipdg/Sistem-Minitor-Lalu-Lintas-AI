@@ -1,70 +1,66 @@
 import streamlit as st
-import google.generativeai as genai
 import pandas as pd
 import numpy as np
 from PIL import Image
 import io
+import requests
 import json
-import re
+import base64
 
-# --- KONSEP PBO: INHERITANCE ---
-class GeminiBase:
+# --- PBO: INHERITANCE ---
+class AIService:
     def __init__(self, key):
-        genai.configure(api_key=key)
+        self.key = key
+        # Jalur v1 resmi untuk model gemini-1.5-flash
+        self.url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={self.key}"
 
-class QualityApp(GeminiBase):
+class QualityApp(AIService):
     def __init__(self, key):
         super().__init__(key)
-        self.title = "AI Vision Quality Control"
-        # Memaksa model menggunakan versi stabil
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.title = "Vision QC - Gemini Flash"
 
-    def analyze(self, img_pil):
-        prompt = """
-        Analisis foto ini. Berikan jawaban HANYA JSON mentah:
-        {"produk": "nama", "skor": 85, "unit": 3, "status": "Lolos", "tren": [80, 85, 90, 88]}
-        """
-        # Proses pengiriman ke AI
-        response = self.model.generate_content([prompt, img_pil])
-        # Membersihkan teks agar hanya JSON yang diambil
-        clean_text = re.sub(r'```json|```', '', response.text).strip()
-        return json.loads(clean_text)
+    def analyze(self, img_bytes):
+        img_b64 = base64.b64encode(img_bytes).decode('utf-8')
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": "Berikan analisis produk dalam JSON mentah saja: {\"produk\": \"kue\", \"skor\": 90, \"unit\": 4, \"tren\": [80, 85, 90]}"},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
+                ]
+            }]
+        }
+        res = requests.post(self.url, json=payload)
+        if res.status_code == 200:
+            text = res.json()['candidates'][0]['content']['parts'][0]['text']
+            clean = text.replace('```json', '').replace('```', '').strip()
+            return json.loads(clean)
+        else:
+            raise Exception(f"Error {res.status_code}: {res.text}")
 
-# --- TAMPILAN DASHBOARD ---
-st.set_page_config(page_title="Vision AI", layout="wide")
-MY_KEY = "AIzaSyB3bQLCvAb2b4tw7Gmsz-N4ZKXwfiFND30" # <--- Tempel API Key dari foto kamu
+# --- UI ---
+st.set_page_config(page_title="Vision QC", layout="wide")
+API_KEY = "AIzaSyB3bQLCvAb2b4tw7Gmsz-N4ZKXwfiFND30" # <--- ISI DISINI
 
-if MY_KEY == "MASUKKAN_API_KEY_KAMU_DISINI":
-    st.warning("Silakan masukkan API Key di dalam kode.")
-    st.stop()
-
-app = QualityApp(MY_KEY)
+app = QualityApp(API_KEY)
 st.title("🛡️ " + app.title)
 
-uploaded_file = st.file_uploader("Pilih foto...", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader("Upload Foto", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
-    img = Image.open(uploaded_file)
-    st.image(img, width=300)
+    img_bytes = uploaded_file.getvalue()
+    st.image(img_bytes, width=300)
     
-    if st.button("Jalankan Analisis AI"):
-        with st.spinner("Sedang memproses..."):
+    if st.button("Jalankan Analisis"):
+        with st.spinner("Menghubungi Gemini v1..."):
             try:
-                res = app.analyze(img)
-                
-                # Menampilkan KPI (Poin 2 Instruksi)
+                data = app.analyze(img_bytes)
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Produk", res.get('produk', '-'))
-                c2.metric("Jumlah", f"{res.get('unit', 0)} Unit")
-                c3.metric("Kualitas", f"{res.get('skor', 0)}%")
+                c1.metric("Produk", data['produk'])
+                c2.metric("Unit", f"{data['unit']} Pcs")
+                c3.metric("Skor", f"{data['skor']}%")
                 
-                # Menampilkan Grafik Tren (Dinamis)
-                st.markdown("---")
-                st.subheader("📈 Tren Analisis Produk")
-                st.line_chart(res.get('tren', []))
-                
-                st.success(f"Analisis Selesai. Status: {res.get('status')}")
+                st.line_chart(data['tren'])
+                st.success("Berhasil menggunakan Jalur v1!")
             except Exception as e:
-                st.error(f"Gagal: {e}. Coba Reboot App di Streamlit.")
-
-st.caption("PBO Paradigm: Inheritance | Engine: Gemini 1.5 Flash")
+                st.error(f"Gagal lagi? Coba cek kuota API Key: {e}")
+                
