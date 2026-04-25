@@ -32,7 +32,7 @@ class QualityApp(GeminiBase):
 
 # --- TAMPILAN DASHBOARD ---
 st.set_page_config(page_title="Vision AI", layout="wide")
-MY_KEY = "MASUKKAN_API_KEY_KAMU_DISINI" # <--- Tempel API Key dari foto kamu
+MY_KEY = "AIzaSyB3bQLCvAb2b4tw7Gmsz-N4ZKXwfiFND30" # <--- Tempel API Key dari foto kamu
 
 if MY_KEY == "MASUKKAN_API_KEY_KAMU_DISINI":
     st.warning("Silakan masukkan API Key di dalam kode.")
