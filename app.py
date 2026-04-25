@@ -1,39 +1,70 @@
 import streamlit as st
-import pandas as pd
+import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-import cv2 # OpenCV untuk simulasi AI
+from PIL import Image
+import cvlib as cv
+from cvlib.object_detection import draw_bbox
 
-# --- KONSEP PBO: INHERITANCE (Pewarisan) ---
-class BaseDetector:
-    def __init__(self, target_domain):
-        self.domain = target_domain
-        self.model_status = "AI Engine Active"
-
-    def get_info(self):
-        return f"Domain: {self.domain} | Status: {self.model_status}"
-
-# Class Anak yang mewarisi Class Induk
-class TrafficVisionAI(BaseDetector):
+# --- KONSEP PBO: INHERITANCE ---
+class VisionSystem:
     def __init__(self):
-        # Memanggil konstruktor induk
-        super().__init__("Smart Traffic Monitoring")
-        # Daftar kendaraan yang bisa dideteksi model ini
-        self.vehicle_classes = ["Mobil", "Motor", "Bus", "Truk"]
-        self.accident_classes = ["Tabrakan", "Pecah Ban", "Mogok"]
+        self.status = "AI Engine Ready"
 
-    # Fungsi AI Utama: Analisis Gambar
-    def analyze_image(self, uploaded_file, confidence_threshold):
-        # 1. Konversi file unggahan Streamlit ke format OpenCV
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        opencv_image = cv2.imdecode(file_bytes, 1)
-        original_image = Image.fromarray(cv2.cvtColor(opencv_image, cv2.COLOR_BGR2RGB))
+class TrafficAI(VisionSystem):
+    def __init__(self):
+        super().__init__()
         
-        # --- SIMULASI AI VISION (Di sini harusnya model AI asli) ---
-        h, w, _ = opencv_image.shape
-        num_vehicles = np.random.randint(5, 20) # Random jumlah kendaraan
-        counts = {cls: 0 for cls in self.vehicle_classes}
-        bboxes = []
+    def detect_objects(self, image_np):
+        # INI ADALAH AI ASLI
+        # bbox = kotak, label = nama objek, conf = akurasi
+        bbox, label, conf = cv.detect_common_objects(image_np)
+        
+        # Menggambar kotak deteksi ke gambar
+        output_image = draw_bbox(image_np, bbox, label, conf)
+        
+        # Menghitung jumlah kendaraan unik
+        counts = {x: label.count(x) for x in set(label)}
+        return output_image, counts, label
+
+# --- UI DASHBOARD ---
+st.set_page_config(page_title="Real AI Detection", layout="wide")
+ai = TrafficAI()
+
+st.title("🚦 Real-Time Traffic AI Detection")
+st.write(f"System Status: {ai.status}")
+
+uploaded_file = st.file_uploader("Unggah foto lalu lintas...", type=["jpg", "jpeg", "png"])
+
+if uploaded_file is not None:
+    # Konversi file ke format yang dimengerti AI
+    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+    opencv_image = cv2.imdecode(file_bytes, 1)
+    
+    with st.spinner('AI sedang memproses foto beneran...'):
+        # Panggil fungsi deteksi dari Class PBO
+        result_img, counts, all_labels = ai.detect_objects(opencv_image)
+        
+        # Tampilkan Hasil
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.image(result_img, channels="BGR", caption="Hasil Deteksi AI Asli", use_column_width=True)
+            
+        with col2:
+            st.subheader("📊 Analisis Objek")
+            if counts:
+                for obj, qnty in counts.items():
+                    st.write(f"✅ **{obj.capitalize()}**: {qnty} terdeteksi")
+                
+                # Analisis Resiko Sederhana
+                st.markdown("---")
+                st.subheader("⚠️ Analisis Resiko")
+                if counts.get('car', 0) > 5 or counts.get('motorcycle', 0) > 10:
+                    st.warning("Potensi Kemacetan: TINGGI")
+                else:
+                    st.success("Potensi Kemacetan: RENDAH")
+            else:
+                st.info("Tidak ada objek kendaraan umum terdeteksi.")
         accident_detected = np.random.choice([True, False], p=[0.2, 0.8]) # 20% peluang kecelakaan
 
         # Membuat bbox (kotak) simulasi di atas threshold
