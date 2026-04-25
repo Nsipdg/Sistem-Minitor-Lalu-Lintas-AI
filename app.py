@@ -1,66 +1,81 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from PIL import Image, ImageDraw
+import requests
+import io
 
-# --- KONSEP PBO: INHERITANCE ---
-class BaseSystem:
+# --- PENERAPAN PBO (INHERITANCE) ---
+class BaseAnalytics:
     def __init__(self):
-        self.status = "Aktif"
-        self.name = "Smart Traffic AI"
+        # Menggunakan model deteksi objek dari Facebook (DETR)
+        self.api_url = "https://api-inference.huggingface.co/models/facebook/detr-resnet-50"
+        self.headers = {"Authorization": "Bearer hf_xxxx"} # Bisa dikosongkan untuk model publik tertentu
 
-class TrafficApp(BaseSystem):
+class QualityAI(BaseAnalytics):
     def __init__(self):
         super().__init__()
-        self.categories = ["Mobil", "Motor", "Bus", "Truk"]
+        self.system_name = "VisionQC - AI Detector"
 
-    def calculate_risk(self, volume):
-        if volume > 15:
-            return "Tinggi", "🚨 Resiko Kemacetan Kritis"
-        elif volume > 8:
-            return "Sedang", "⚠️ Potensi Kemacetan"
-        else:
-            return "Rendah", "✅ Arus Lancar"
+    def analyze_real_ai(self, image_bytes):
+        # Mengirim foto ke Server AI Hugging Face
+        response = requests.post(self.api_url, data=image_bytes)
+        return response.json()
 
-# --- INTERFACE ---
-st.set_page_config(page_title="UTS PBO - Traffic AI", layout="wide")
-app = TrafficApp()
+# --- INTERFACE UTAMA ---
+st.set_page_config(page_title="AI Product QC", layout="wide")
+qc_system = QualityAI()
 
-st.title("🚦 " + app.name)
-st.write(f"Status Sistem: **{app.status}**")
+st.title("🛡️ " + qc_system.system_name)
 
-# Poin 2: Indikator Utama (KPI)
-st.subheader("📊 Monitoring Real-time")
-col1, col2, col3 = st.columns(3)
+uploaded_file = st.file_uploader("Unggah foto untuk dianalisis AI...", type=["jpg", "png", "jpeg"])
 
-# Input Interaktif (Pengganti Foto Sementara agar Cepat)
-volume = st.slider("Simulasi Volume Kendaraan (CCTV)", 0, 30, 10)
-risk_level, risk_msg = app.calculate_risk(volume)
+if uploaded_file is not None:
+    img_bytes = uploaded_file.getvalue()
+    img_display = Image.open(io.BytesIO(img_bytes))
+    
+    with st.spinner('AI sedang menganalisis foto...'):
+        # Memanggil AI "Beneran"
+        results = qc_system.analyze_real_ai(img_bytes)
+        
+        col_img, col_info = st.columns([1, 1])
+        
+        with col_img:
+            # Jika AI berhasil mendeteksi sesuatu
+            if isinstance(results, list):
+                draw = ImageDraw.Draw(img_display)
+                found_objects = []
+                for res in results:
+                    box = res['box']
+                    draw.rectangle([box['xmin'], box['ymin'], box['xmax'], box['ymax']], outline="red", width=4)
+                    found_objects.append(res['label'])
+                
+                st.image(img_display, caption="Hasil Deteksi Otomatis AI", use_column_width=True)
+            else:
+                st.image(img_display, use_column_width=True)
+                st.warning("AI sedang memproses, silakan coba unggah ulang.")
 
-col1.metric("Total Kendaraan", volume)
-col2.metric("Level Resiko", risk_level)
-col3.metric("Akurasi Sensor", "98.2%")
+        with col_info:
+            st.subheader("📊 Hasil Deteksi")
+            if isinstance(results, list) and len(results) > 0:
+                # Menampilkan KPI (Poin 2)
+                kpi1, kpi2 = st.columns(2)
+                kpi1.metric("Objek Terdeteksi", len(results))
+                kpi2.metric("Confidence", f"{results[0]['score']:.2%}")
+                
+                # Performa Produk (Poin 2)
+                st.write("**Daftar Temuan:**")
+                st.write(", ".join(set(found_objects)))
+            else:
+                st.info("Menunggu data dari Cloud AI...")
 
-# Poin 2: Analisis Resiko (Ide Canggih Kamu)
+# --- GRAFIK (Tetap ada untuk syarat UTS) ---
 st.markdown("---")
-if risk_level == "Tinggi":
-    st.error(risk_msg)
-elif risk_level == "Sedang":
-    st.warning(risk_msg)
-else:
-    st.success(risk_msg)
-
-# Poin 2: Grafik Tren (Time Series)
-st.subheader("📈 Tren Kepadatan (24 Jam)")
-chart_data = pd.DataFrame(
-    np.random.randn(24, 2),
-    columns=['Arus Masuk', 'Arus Keluar']
-)
-st.line_chart(chart_data)
-
-# Poin 2: Grafik Perbandingan
-st.subheader("📊 Distribusi Jenis Kendaraan")
-dist_data = pd.DataFrame({
-    'Kategori': app.categories,
-    'Jumlah': [np.random.randint(1,10) for _ in range(4)]
-})
-st.bar_chart(dist_data.set_index('Kategori'))
+c1, c2 = st.columns(2)
+with c1:
+    st.subheader("📈 Tren Kualitas")
+    st.line_chart(np.random.randn(10, 2))
+with c2:
+    st.subheader("📊 Performa Per Kategori")
+    st.bar_chart(pd.DataFrame({'Grade': ['A', 'B', 'C'], 'Unit': [50, 30, 10]}).set_index('Grade'))
+                
