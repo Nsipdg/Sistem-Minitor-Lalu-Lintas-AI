@@ -41,11 +41,13 @@ class ImageRestorationApp(BaseAI):
 st.set_page_config(page_title="Image HD Restoration", layout="wide")
 
 # Token baru Hugging Face yang bertipe 'Read' (Buat yang baru jika yang lama diblokir)
-HF_TOKEN = st.secrets["HF_TOKEN"]
-
-if not HF_TOKEN:
+# Ambil token hanya dari Secrets
+try:
+    HF_TOKEN = st.secrets["HF_TOKEN"]
+except:
     st.error("⚠️ Token tidak ditemukan di Streamlit Secrets!")
     st.stop()
+
 
 # Inisialisasi Objek (Implementasi PBO)
 app = ImageRestorationApp(HF_TOKEN)
